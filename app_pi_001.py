@@ -21,7 +21,7 @@ import requests
 #    return response.json()["translations"][0]["text"]
 
 # サービス名を表示する
-st.sidebar.title("[Pictet] AI Assistant")
+st.sidebar.title("[Pi] AI Assistant")
 
 # Create a unique key for the widget
 unique_key = str(uuid.uuid4())
