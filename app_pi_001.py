@@ -6,19 +6,19 @@ from PIL import Image
 import requests
 
 # DeepLのAPIキーを取得
-DEEPL_API_KEY = st.secrets["DeepLAPI"]["deepl_api_key"]
+#DEEPL_API_KEY = st.secrets["DeepLAPI"]["deepl_api_key"]
 
 # DeepLのAPIを呼び出す関数
-def translate_to_english(text):
-    url = "https://api-free.deepl.com/v2/translate"
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
-    data = {
-        "auth_key": DEEPL_API_KEY,
-        "text": text,
-        "target_lang": "EN",
-    }
-    response = requests.post(url, headers=headers, data=data)
-    return response.json()["translations"][0]["text"]
+#def translate_to_english(text):
+#    url = "https://api-free.deepl.com/v2/translate"
+#    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+#    data = {
+#        "auth_key": DEEPL_API_KEY,
+#        "text": text,
+#        "target_lang": "EN",
+#    }
+#    response = requests.post(url, headers=headers, data=data)
+#    return response.json()["translations"][0]["text"]
 
 # サービス名を表示する
 st.sidebar.title("Audit Wizard")
