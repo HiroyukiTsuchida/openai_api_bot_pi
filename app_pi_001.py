@@ -21,7 +21,7 @@ import requests
 #    return response.json()["translations"][0]["text"]
 
 # サービス名を表示する
-st.sidebar.title("Audit Wizard")
+st.sidebar.title("[Pictet] AI Assistant")
 
 # Create a unique key for the widget
 unique_key = str(uuid.uuid4())
@@ -71,7 +71,7 @@ def communicate(user_input, bot_response_placeholder, model):
 # サイドバーで機能を選択
 selected_option = st.sidebar.selectbox(
     "機能を選択してください",
-    ["Q&A", "Audit Planning", "Inspection", "Data Analytics", "Risk Assessment", "RootCause Analysis","Continuous Monitoring"], # Continuous Monitoringを追加
+    ["Q&A", "Translation", "Proofreading", "Formula Analysis", "VBA", "Data Analysis"],
     key="selectbox_key"  # 固定のキーを指定する
 )
 
@@ -101,8 +101,8 @@ if selected_option == "Q&A":
         # Clear the user input
         st.session_state["user_input_Q&A"] = ""
 
-elif selected_option == "Audit Planning":
-    st.title("Audit Planning")
+elif selected_option == "Translation":
+    st.title("Translation")
 
     # チェックボックス
     checkboxes = ["監査概要","監査項目・着眼点","想定されるリスク", "期待されるコントロール", "規準（クライテリア）", "インタビュー項目","ToD（デザインの有効性評価）","ToE（運用状況の有効性評価）", "監査証拠（資料名・データ名）", "対象部門","想定される発見事項"]
@@ -151,8 +151,8 @@ elif selected_option == "Audit Planning":
         st.session_state["user_input"] = initial_prompt
         communicate(initial_prompt, bot_response_placeholder, model)
 
-elif selected_option == "Data Analytics":
-    st.title("Data Analytics")
+elif selected_option == "Proofreading":
+    st.title("Proofreading")
 
     # 長文が入力できるフィールド
     data = st.text_area("検証するデータを入力してください", height=200, key="data_input")
@@ -175,8 +175,8 @@ elif selected_option == "Data Analytics":
         # Clear the user input
         st.session_state["user_input"] = ""
 
-elif selected_option == "Inspection":
-    st.title("Inspection")
+elif selected_option == "Formula Analysis":
+    st.title("Formula Analysis")
 
     # 入力フィールドを３つ表示
     input1 = st.text_area("文書")
@@ -198,9 +198,8 @@ elif selected_option == "Inspection":
         # Clear the user input
         st.session_state["user_input"] = ""
 
-# 新しい機能「Risk Assessment」のUIを追加
-elif selected_option == "Risk Assessment":
-    st.title("Risk Assessment")
+elif selected_option == "VBA":
+    st.title("VBA")
 
     # サイドバーのチェックボックス
     checkboxes = ["監査ユニバース","ボトムアップ","トップダウン","年度監査計画書"]
@@ -275,44 +274,8 @@ elif selected_option == "Risk Assessment":
         # Clear the user input
         st.session_state["user_input"] = ""
 
-# Continuous MonitoringのUIを追加
-elif selected_option == "Continuous Monitoring":
-    st.title("Continuous Monitoring")
-
-    # サイドバーのチェックボックス
-    checkboxes = ["モニタリング項目", "入手すべき資料やデータ", "検知すべき異常値や傾向"]
-    selected_items = []
-    for checkbox in checkboxes:
-        if st.sidebar.checkbox(checkbox, key=f"checkbox_offsite_{checkbox}"):
-            selected_items.append(checkbox)
-
-    # 右側の入力フィールド
-    monitoring_target = st.text_input("モニタリング対象を入力してください。", "", key="monitoring_target_input")
-
-    # 追加：補足情報の入力フィールド
-    additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
-
-    # Create a placeholder for the bot's responses
-    bot_response_placeholder = st.empty()
-
-    # Execute the communicate function when the user presses the 'Submit' button
-    if st.button("実行", key="send_button_offsite_monitoring"):
-        initial_prompt = (
-            "あなたは優秀な内部監査人で、継続的モニタリングのエキスパートです。\n"
-            f"「{monitoring_target}」をモニタリング対象とした時の"
-            f"「{'」「'.join(selected_items)}」について教えてください。\n"
-            f"補足情報: {additional_info}\n"
-        )
-        st.session_state["user_input"] = initial_prompt
-        communicate(initial_prompt, bot_response_placeholder, model)
-
-        # Clear the user input
-        st.session_state["user_input"] = ""
-
-        # Continuous MonitoringのUIを追加
-
-elif selected_option == "RootCause Analysis":
-    st.title("RootCause Analysis")
+elif selected_option == "Data Analysis":
+    st.title("Data Analysis")
 
     # サイドバーのチェックボックス
     checkboxes = ["問題の事実", "原因分析", "改善提案"]
