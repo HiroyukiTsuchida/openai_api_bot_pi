@@ -121,14 +121,14 @@ elif selected_option == "Translation":
     bot_response_placeholder = st.empty()
 
     if st.button("実行", key="send_button_auditors_view"):
-      initial_prompt = (
-          "あなたは優秀な翻訳家です。あなたの役割は、英文を日本語に翻訳し、日本語のウェブサイト上で日本人の投資家向けに翻訳された間違いのない情報を提供することです。\n"
-          f"{theme}を翻訳してください。\n"
-          "以下は補足情報です。\n"
-          f"補足情報: {additional_info}"
-          "以下は注意点です。\n"
-          f"可能な限り原文に忠実に、漏れや間違いなく、自然な日本語に翻訳してください。\n"
-      )
+        initial_prompt = (
+            "あなたは優秀な翻訳家です。あなたの役割は、英文を日本語に翻訳し、日本語のウェブサイト上で日本人の投資家向けに翻訳された間違いのない情報を提供することです。\n"
+            f"{theme}を翻訳してください。\n"
+            "以下は補足情報です。\n"
+            f"補足情報: {additional_info}"
+            "以下は注意点です。\n"
+            f"可能な限り原文に忠実に、漏れや間違いなく、自然な日本語に翻訳してください。\n"
+        )
         st.session_state["user_input"] = initial_prompt
         communicate(initial_prompt, bot_response_placeholder, model)
 
