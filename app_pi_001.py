@@ -85,10 +85,10 @@ model = st.sidebar.selectbox(
 # 機能に応じたUIの表示
 if selected_option == "Q&A":
     # Build the user interface
-    st.title("Audit Wizard")
+    st.title("AI Assistant")
 
     # Create a placeholder for the user's input
-    user_input = st.text_area("内部監査やGRCに関する質問を入力してください。", value=st.session_state.get("user_input_Q&A", ""))
+    user_input = st.text_area("自由に質問を入力してください。", value=st.session_state.get("user_input_Q&A", ""))
 
     # Create a placeholder for the bot's responses
     bot_response_placeholder = st.empty()
@@ -105,14 +105,14 @@ elif selected_option == "Translation":
     st.title("Translation")
 
     # チェックボックス
-    checkboxes = ["監査概要","監査項目・着眼点","想定されるリスク", "期待されるコントロール", "規準（クライテリア）", "インタビュー項目","ToD（デザインの有効性評価）","ToE（運用状況の有効性評価）", "監査証拠（資料名・データ名）", "対象部門","想定される発見事項"]
-    selected_items = []
-    for checkbox in checkboxes:
-        if st.sidebar.checkbox(checkbox, key=f"checkbox_{checkbox}"):
-            selected_items.append(checkbox)
+    #checkboxes = ["監査概要","監査項目・着眼点","想定されるリスク", "期待されるコントロール", "規準（クライテリア）", "インタビュー項目","ToD（デザインの有効性評価）","ToE（運用状況の有効性評価）", "監査証拠（資料名・データ名）", "対象部門","想定される発見事項"]
+    #selected_items = []
+    #for checkbox in checkboxes:
+    #    if st.sidebar.checkbox(checkbox, key=f"checkbox_{checkbox}"):
+    #        selected_items.append(checkbox)
 
     # 右側の入力フォーム
-    theme = st.text_area("検証したいテーマを入力し、左からメニューを選んで、実行ボタンを押してください。", "", key="theme_input")
+    theme = st.text_area("翻訳したい文章を入力し、実行ボタンを押してください。", "", key="theme_input")
 
     # 追加：補足情報の入力フィールド
     additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
@@ -121,33 +121,14 @@ elif selected_option == "Translation":
     bot_response_placeholder = st.empty()
 
     if st.button("実行", key="send_button_auditors_view"):
-        if "ToD（デザインの有効性評価）" in selected_items or "ToE（運用状況の有効性評価）" in selected_items:
-            # ToD or ToE を選択した場合に送信するメッセージ
-            initial_prompt = (
-                "あなたは優秀な内部監査人です。\n"
-                f"{theme}の有効性評価の方法を設計面と運用面のそれぞれから。\n"
-                "運用の有効性評価は監査で検証すべきサンプルの件数も記載。件数はコントロールが実施される頻度に応じて決まる。\n"
-                "例えばITコントロールの場合は1件サンプルを入手する。\n"
-                "例えば人手によるマニュアルコントロールが日次または1日複数回実施される場合は50件サンプルを入手する。\n"
-                "例えば人手によるマニュアルコントロールが不定期に実施される場合は25件のサンプルを入手する。\n"
-                "例えば人手によるマニュアルコントロールが週次で実施される場合は5件のサンプルを入手する。\n"
-                "例えば人手によるマニュアルコントロールが月次または四半期で実施される場合は3件のサンプルを入手する。\n"
-                "例えば人手によるマニュアルコントロールが半期で実施される場合は2件のサンプルを入手する。\n"
-                "例えば人手によるマニュアルコントロールが年次で実施される場合は1件のサンプルを入手する。\n"
-                "以下は補足情報です。\n"
-                f" {additional_info}"
-            )
-        else:
-            # ToD や ToE を選択していない場合に送信するメッセージ
-            initial_prompt = (
-                "あなたは優秀な内部監査人です。\n"
-                f"{theme}に関する「{'」「'.join(selected_items)}」について教えて。\n"
-                "以下は補足情報です。\n"
-                f"補足情報: {additional_info}"
-               "以下は注意点です。\n"
-                f"明確な公的なガイダンスや法令等がない場合はその旨を教えて。世の中に存在しない公的なガイダンスや法令等を教えたり、不正確な公的なガイダンスや法令等の名称を教えることは絶対にしないでください。\n"
-            )
-
+      initial_prompt = (
+          "あなたは優秀な翻訳家です。あなたの役割は、英文を日本語に翻訳し、日本語のウェブサイト上で日本人の投資家向けに翻訳された間違いのない情報を提供することです。\n"
+          f"{theme}を翻訳してください。\n"
+          "以下は補足情報です。\n"
+          f"補足情報: {additional_info}"
+          "以下は注意点です。\n"
+          f"可能な限り原文に忠実に、漏れや間違いなく、自然な日本語に翻訳してください。\n"
+      )
         st.session_state["user_input"] = initial_prompt
         communicate(initial_prompt, bot_response_placeholder, model)
 
