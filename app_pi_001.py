@@ -51,7 +51,8 @@ def communicate(user_input, bot_response_placeholder, model):
     for chunk in openai.ChatCompletion.create(
         model=model,
         messages=messages,
-        temperature=0,
+        temperature=0.1,
+        top_p=0.5,
         stream=True
     ):
         content = chunk["choices"][0].get("delta", {}).get("content")
@@ -103,13 +104,6 @@ if selected_option == "Q&A":
 
 elif selected_option == "Translation":
     st.title("Translation")
-
-    # チェックボックス
-    #checkboxes = ["監査概要","監査項目・着眼点","想定されるリスク", "期待されるコントロール", "規準（クライテリア）", "インタビュー項目","ToD（デザインの有効性評価）","ToE（運用状況の有効性評価）", "監査証拠（資料名・データ名）", "対象部門","想定される発見事項"]
-    #selected_items = []
-    #for checkbox in checkboxes:
-    #    if st.sidebar.checkbox(checkbox, key=f"checkbox_{checkbox}"):
-    #        selected_items.append(checkbox)
 
     # 右側の入力フォーム
     theme = st.text_area("翻訳したい文章を入力し、実行ボタンを押してください。", height=200, key="theme_input")
