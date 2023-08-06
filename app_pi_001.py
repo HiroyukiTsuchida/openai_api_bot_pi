@@ -106,7 +106,7 @@ elif selected_option == "Translation":
     st.title("Translation")
 
     # 右側の入力フォーム
-    theme = st.text_area("翻訳したい文章を入力し、実行ボタンを押してください。", height=200, key="theme_input")
+    translate_text = st.text_area("翻訳したい文章を入力し、実行ボタンを押してください。", height=200, key="translate_text_input")
 
     # 追加：補足情報の入力フィールド
     additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
@@ -114,12 +114,12 @@ elif selected_option == "Translation":
     # Create a placeholder for the bot's responses
     bot_response_placeholder = st.empty()
 
-    if st.button("実行", key="send_button_auditors_view"):
+    if st.button("実行", key="send_button_translation"):
         initial_prompt = (
             "あなたは優秀な翻訳家です。あなたの役割は、英文を日本語に翻訳し、日本語のウェブサイト上で日本人の投資家向けに翻訳された間違いのない情報を提供することです。\n"
             "可能な限り原文に忠実に、漏れや間違いなく、自然な日本語に翻訳してください。\n"
             "＃指示\n"
-            f"{theme}を翻訳してください。\n"
+            f"{translate_text}を翻訳してください。\n"
             f"＃補足情報: {additional_info}"
             "＃注意してほしい点：所有格を無理に全部訳さない\n"
             "＃例①\n"
@@ -194,7 +194,25 @@ elif selected_option == "Translation":
         communicate(initial_prompt, bot_response_placeholder, model)
 
 elif selected_option == "Proofreading":
-    st.title("[WIP] Proofreading")
+    st.title("Proofreading")
+
+    # 右側の入力フォーム
+    proofreading_text = st.text_area("校閲/校正したい文章を入力し、実行ボタンを押してください。", height=200, key="proofreading_text_input")
+
+    # 追加：補足情報の入力フィールド
+    additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
+
+    # Create a placeholder for the bot's responses
+    bot_response_placeholder = st.empty()
+
+    if st.button("実行", key="send_button_proofreading"):
+        initial_prompt = (
+            "あなたは日本語の文章校閲・校正のスペシャリストです。次の文章を日本の投資家向けに提供したいのですが、英文を機械翻訳したため不自然な個所がいくつかあります。内容はそのままに、不要な統治表現は用いない等、自然な文章になるよう修正してください。"
+            f"{proofreading_text}を校閲・校正してください。\n"
+            f"＃補足情報: {additional_info}"
+        )
+        st.session_state["user_input"] = initial_prompt
+        communicate(initial_prompt, bot_response_placeholder, model)
 
 
 elif selected_option == "Formula Analysis":
