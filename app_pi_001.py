@@ -79,7 +79,7 @@ selected_option = st.sidebar.selectbox(
 # モデルを選択
 model = st.sidebar.selectbox(
     "モデルを選択してください",
-    ["gpt-3.5-turbo-16k", "gpt-4", "gpt-4-32k"],
+    ["gpt-3.5-turbo-16k", "gpt-4"],
     key="model_selectbox_key"  # 固定のキーを指定する
 )
 
