@@ -5,6 +5,22 @@ import uuid
 from PIL import Image
 import requests
 
+# ログイン機能の実装
+def login():
+    username = st.sidebar.text_input("ユーザー名")
+    password = st.sidebar.text_input("パスワード", type="password")
+    if st.sidebar.button("ログイン"):
+        if username == "admin" and password == "llm@2023":
+            st.sidebar.success("ログインに成功しました。")
+            return True
+        else:
+            st.sidebar.error("ユーザー名またはパスワードが間違っています。")
+    return False
+
+# ログインチェック
+if not login():
+    st.stop()
+
 # DeepLのAPIキーを取得
 #DEEPL_API_KEY = st.secrets["DeepLAPI"]["deepl_api_key"]
 
@@ -130,14 +146,14 @@ elif selected_option == "Translation":
             "【英文】The Company aims to nearly double its number of restaurants. \n"
             "【悪い日本語訳の例】その会社は自社のレストランの店舗数をほぼ倍にすることを目指している。 \n"
             "【良い日本語訳の例】その会社はレストランの店舗数をほぼ倍にすることを目指している。 \n"
-            "＃注意してほしい点：複数形は状況によっては無理に訳さない\n" 
+            "＃注意してほしい点：複数形は状況によっては無理に訳さない\n"
             "＃例①\n"
             "【英文】The task of facilitating language learning for our children may seem complicated.\n"
             "【悪い日本語訳の例】子供たちに外国語を学ばせることは難しいように思うかもしれません。\n"
             "【良い日本語訳の例】子供に外国語を学ばせることは難しいように思うかもしれません。\n"
             "＃例②\n"
-            "【原文】For parents, preparing a list of questions before an appointment is a good start as teachers are busy.\n" 
-            "【悪い日本語訳の例】教師たちは忙しいので親はあらかじめ質問したいことを書き出して面談に臨むといいでしょう。\n" 
+            "【原文】For parents, preparing a list of questions before an appointment is a good start as teachers are busy.\n"
+            "【悪い日本語訳の例】教師たちは忙しいので親はあらかじめ質問したいことを書き出して面談に臨むといいでしょう。\n"
             "【良い日本語訳の例】教師は忙しいので親はあらかじめ質問したいことを書き出して面談に臨むといいでしょう。 \n"
             "＃注意してほしい点：「any」は「もし～なら」に分解したほうがいい場合もある\n"
             "＃例①\n"
@@ -177,7 +193,7 @@ elif selected_option == "Translation":
             "【悪い日本語訳の例】この経験とイノベーションの組み合わせがその企業を成功させた。 \n"
             "【良い日本語訳の例】この経験とイノベーションこそがその企業を成功に導いた要因だ。\n"
             "＃例②\n"
-            "【原文】Professor Smith has made me want to become a teacher.\n" 
+            "【原文】Professor Smith has made me want to become a teacher.\n"
             "【悪い日本語訳の例】スミス教授は私を先生になりたくさせた。\n"
             "【良い日本語訳の例】スミス教授に出会って私は先生になりたいと思った。\n"
             "＃注意してほしい点：「～ための」の「to」や「for」を訳し下げる\n"
@@ -187,7 +203,7 @@ elif selected_option == "Translation":
             "【良い日本語訳の例】リサが振り返ると鳥たちが青い空へと飛び立っていくのが見えた。\n"
             "＃例②\n"
             "【英文】The application shall be submitted to the president for review. \n"
-            "【悪い日本語訳の例】申込書は確認のために社長に提出されなければならない。\n" 
+            "【悪い日本語訳の例】申込書は確認のために社長に提出されなければならない。\n"
             "【良い日本語訳の例】申込書を提出し社長の確認を受けなければならない。\n"
         )
         st.session_state["user_input"] = initial_prompt
