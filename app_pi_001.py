@@ -5,6 +5,22 @@ import uuid
 from PIL import Image
 import requests
 
+# ログイン機能の実装
+def login():
+    username = st.sidebar.text_input("ユーザー名")
+    password = st.sidebar.text_input("パスワード", type="password")
+    if st.sidebar.button("ログイン"):
+        if username == "admin" and password == "llm@2023":
+            st.sidebar.success("ログインに成功しました。")
+            return True
+        else:
+            st.sidebar.error("ユーザー名またはパスワードが間違っています。")
+    return False
+
+# ログインチェック
+if not login():
+    st.stop()
+
 # DeepLのAPIキーを取得
 #DEEPL_API_KEY = st.secrets["DeepLAPI"]["deepl_api_key"]
 
@@ -130,14 +146,14 @@ elif selected_option == "Translation":
             "【英文】The Company aims to nearly double its number of restaurants. \n"
             "【悪い日本語訳の例】その会社は自社のレストランの店舗数をほぼ倍にすることを目指している。 \n"
             "【良い日本語訳の例】その会社はレストランの店舗数をほぼ倍にすることを目指している。 \n"
-            "＃注意してほしい点：複数形は状況によっては無理に訳さない\n" 
+            "＃注意してほしい点：複数形は状況によっては無理に訳さない\n"
             "＃例①\n"
             "【英文】The task of facilitating language learning for our children may seem complicated.\n"
             "【悪い日本語訳の例】子供たちに外国語を学ばせることは難しいように思うかもしれません。\n"
             "【良い日本語訳の例】子供に外国語を学ばせることは難しいように思うかもしれません。\n"
             "＃例②\n"
-            "【原文】For parents, preparing a list of questions before an appointment is a good start as teachers are busy.\n" 
-            "【悪い日本語訳の例】教師たちは忙しいので親はあらかじめ質問したいことを書き出して面談に臨むといいでしょう。\n" 
+            "【原文】For parents, preparing a list of questions before an appointment is a good start as teachers are busy.\n"
+            "【悪い日本語訳の例】教師たちは忙しいので親はあらかじめ質問したいことを書き出して面談に臨むといいでしょう。\n"
             "【良い日本語訳の例】教師は忙しいので親はあらかじめ質問したいことを書き出して面談に臨むといいでしょう。 \n"
             "＃注意してほしい点：「any」は「もし～なら」に分解したほうがいい場合もある\n"
             "＃例①\n"
@@ -177,7 +193,7 @@ elif selected_option == "Translation":
             "【悪い日本語訳の例】この経験とイノベーションの組み合わせがその企業を成功させた。 \n"
             "【良い日本語訳の例】この経験とイノベーションこそがその企業を成功に導いた要因だ。\n"
             "＃例②\n"
-            "【原文】Professor Smith has made me want to become a teacher.\n" 
+            "【原文】Professor Smith has made me want to become a teacher.\n"
             "【悪い日本語訳の例】スミス教授は私を先生になりたくさせた。\n"
             "【良い日本語訳の例】スミス教授に出会って私は先生になりたいと思った。\n"
             "＃注意してほしい点：「～ための」の「to」や「for」を訳し下げる\n"
@@ -187,7 +203,7 @@ elif selected_option == "Translation":
             "【良い日本語訳の例】リサが振り返ると鳥たちが青い空へと飛び立っていくのが見えた。\n"
             "＃例②\n"
             "【英文】The application shall be submitted to the president for review. \n"
-            "【悪い日本語訳の例】申込書は確認のために社長に提出されなければならない。\n" 
+            "【悪い日本語訳の例】申込書は確認のために社長に提出されなければならない。\n"
             "【良い日本語訳の例】申込書を提出し社長の確認を受けなければならない。\n"
         )
         st.session_state["user_input"] = initial_prompt
@@ -207,7 +223,32 @@ elif selected_option == "Proofreading":
 
     if st.button("実行", key="send_button_proofreading"):
         initial_prompt = (
-            "あなたは日本語の文章校閲・校正のスペシャリストです。次の文章を日本の投資家向けに提供したいのですが、英文を機械翻訳したため不自然な個所がいくつかあります。内容はそのままに、不要な統治表現は用いない等、自然な文章になるよう修正してください。"
+            """あなたは校閲・校正の優秀なスペシャリストです。
+            あなたの役割は、日本の投資家向けに公表される情報を校閲・校正し、間違いなく高品質な文章を作成することです。
+            これから入力する文章に対して、下記の操作1を行い、出力してください。
+            操作1:[
+            修正1:誤字脱字、タイプミスがあった場合は全て指摘してください。指摘した個所は
+            ・「〇〇」→「〇〇」
+            と箇条書きで抽出してください。
+            修正2:言葉の表記にばらつきがあった場合は全て指摘してしてください。
+            修正3:数字の表記は、１桁は全角、２桁以上は半角とします。表記にばらつきがあった場合は全て指摘してしてください。
+            修正4:慣用句やことわざの表現に誤りがあると考えられる場合は全て指摘してください。
+            修正5:文脈に合わない単語が使われている場合は誤りを全て指摘してください。
+            修正6:主語と述語の組み合わせが間違っている場合は全て指摘してください。
+            修正7:文末の表現は全て「です、ます」口調に統一してください。
+            修正8:句読点の打ち方に不自然な点がある場合は全て指摘してください。
+            ]
+
+            操作1を行う際には下記の条件を遵守して操作を行ってください。
+            条件:[
+            ・文章の順番に変更を加えない
+            ・架空の表現や慣用句、ことわざを使用しない。
+            ・文章を省略しない。
+            ]
+
+            操作2:[
+            操作1を行った後に指摘事項を全て修正した正しい文章を出力してください。]
+            """
             f"{proofreading_text}を校閲・校正してください。\n"
             f"＃補足情報: {additional_info}"
         )
