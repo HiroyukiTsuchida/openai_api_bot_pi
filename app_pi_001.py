@@ -6,20 +6,20 @@ from PIL import Image
 import requests
 
 # ログイン機能の実装
-def login():
-    username = st.sidebar.text_input("ユーザー名")
-    password = st.sidebar.text_input("パスワード", type="password")
-    if st.sidebar.button("ログイン"):
-        if username == "admin" and password == "llm@2023":
-            st.sidebar.success("ログインに成功しました。")
-            return True
-        else:
-            st.sidebar.error("ユーザー名またはパスワードが間違っています。")
-    return False
+#def login():
+#    username = st.sidebar.text_input("ユーザー名")
+#    password = st.sidebar.text_input("パスワード", type="password")
+#    if st.sidebar.button("ログイン"):
+#        if username == "admin" and password == "llm@2023":
+#            st.sidebar.success("ログインに成功しました。")
+#            return True
+#        else:
+#            st.sidebar.error("ユーザー名またはパスワードが間違っています。")
+#    return False
 
 # ログインチェック
-if not login():
-    st.stop()
+#if not login():
+#    st.stop()
 
 # DeepLのAPIキーを取得
 #DEEPL_API_KEY = st.secrets["DeepLAPI"]["deepl_api_key"]
