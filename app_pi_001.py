@@ -5,7 +5,7 @@ import uuid
 
 
 # サービス名を表示する
-st.sidebar.title("AI Assistant")
+st.sidebar.title("[Dev] AI Assistant")
 
 # 初回ログイン認証
 if "authenticated" not in st.session_state:
@@ -91,13 +91,16 @@ if st.session_state["authenticated"]:
 
     # Temperatureスライダーとその補足情報
     with st.sidebar.beta_expander("Temperature  🛈"):
-        st.write("Temperature（温度）:モデルの出力の「確信度」または「多様性」を制御します。値が高いとモデルの出力は多様性が増し、予測はよりランダムになります。逆に、値が低いとモデルの出力はより確信度が高くなり、最も確率的に高い結果を選びやすくなります。初期値は0.1に設定しています。")
+        st.write("Temperature（温度）:モデルの出力の「確信度」または「多様性」を制御します。値が高いとモデルの出力は多様性が増し、予測はよりランダムになります。逆に、値が低いとモデルの出力はより確信度が高くなり、最も確率的に高い結果を選びやすくなります。【推奨値:0.10】")
         temperature = st.slider("", 0.0, 2.0, 0.1, 0.01)
 
     # Top_Pスライダーとその補足情報
     with st.sidebar.beta_expander("Top_P  🛈"):
-        st.write("Top_P: 温度と同様に、これはランダム性を制御しますが、別の方法を使用します。Top_P を下げると、より可能性が高い回答に絞り込まれます。Top_P を上げると、確率が高い回答と低い回答の両方から選択されるようになります。初期値は0.5に設定しています。")
+        st.write("Top_P: 温度と同様に、これはランダム性を制御しますが、別の方法を使用します。Top_P を下げると、より可能性が高い回答に絞り込まれます。Top_P を上げると、確率が高い回答と低い回答の両方から選択されるようになります。【推奨値:0.50】")
         top_p = st.slider("", 0.0, 1.0, 0.5, 0.01)
+
+    # 留意点の表示
+    st.sidebar.markdown('<span style="color:red">***個人情報や機密情報は入力しないでください**</span>', unsafe_allow_html=True)
 
     # 機能に応じたUIの表示
     if selected_option == "選択してください":
