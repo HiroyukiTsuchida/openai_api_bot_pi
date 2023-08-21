@@ -5,7 +5,7 @@ import uuid
 
 
 # サービス名を表示する
-st.sidebar.title("[Dev] AI Assistant")
+st.sidebar.title("AI Assistant")
 
 # 初回ログイン認証
 if "authenticated" not in st.session_state:
