@@ -4,7 +4,7 @@ import openai
 import uuid
 
 # サービス名を表示する
-st.sidebar.title("AI Assistant v1.0.0")
+st.sidebar.title("AI Assistant")
 
 # 初回ログイン認証
 if "authenticated" not in st.session_state:
@@ -38,6 +38,11 @@ if st.session_state["authenticated"]:
     if "user_input" not in st.session_state:
         st.session_state["user_input"] = ""
 
+    def count_tokens(text):
+        response = openai.Completion.create(model="text-davinci-002", prompt=text, max_tokens=1)
+        token_count = response['usage']['total_tokens']
+        return token_count
+
     # チャットボットとやりとりする関数
     def communicate(user_input, bot_response_placeholder, model, temperature, top_p):
         messages = st.session_state["messages"]
@@ -60,7 +65,7 @@ if st.session_state["authenticated"]:
                 # Accumulate content and update the bot's response in real time
                 complete_response += content
                 formatted_response = complete_response.replace("\n", "<br>")
-                indented_response = "".join([f"<pre style='margin-left: 20px; white-space: pre-wrap;'>{line}</pre>" for line in complete_response.split('\n')]) # インデントで回答
+                indented_response = "".join([f"<div style='margin-left: 20px; white-space: pre-wrap;'>{line}</div>" for line in complete_response.split('\n')]) # インデントで回答
                 bot_response_placeholder.markdown(indented_response, unsafe_allow_html=True)
 
         # After all chunks are received, add the complete response to the chat history
@@ -79,21 +84,19 @@ if st.session_state["authenticated"]:
         key="selectbox_key"  # 固定のキーを指定する
     )
 
-    # モデルを選択
-    model = st.sidebar.selectbox(
+    # タイトル「オプション」を追加
+    st.sidebar.header("オプション")
+
+    # モデルの選択とその補足情報
+    with st.sidebar.beta_expander("モデル  🛈"):
+        st.write(
+        """gpt-4（推奨）は、高品質な回答を出力します。入力・出力の合計で約8,000トークンまで処理可能です。gpt-3.5-turbo-16kは、gpt-4と比較すると回答の質は下がりますが、入力・出力の合計で約16,000トークンまで処理でき、gpt-4に比べ高速で回答の出力が可能です。
+        """)
+        model = st.selectbox(
         "モデルを選択してください",
         ["gpt-4", "gpt-3.5-turbo-16k"],
         key="model_selectbox_key"  # 固定のキーを指定する
     )
-
-    # モデルについての説明の表示
-    st.sidebar.markdown(f'<span style="color:grey; font-size:12px;">標準は「gpt-4」です。「gpt-3.5-turbo-16k」を選択すると、性能は下がりますが入力単語数・文字数の上限を約２倍にすることができます。</span>', unsafe_allow_html=True)
-
-    ("")
-
-
-    # タイトル「オプション」を追加
-    st.sidebar.header("オプション")
 
     # Temperatureスライダーとその補足情報
     with st.sidebar.beta_expander("Temperature  🛈"):
@@ -104,6 +107,19 @@ if st.session_state["authenticated"]:
     with st.sidebar.beta_expander("Top_P  🛈"):
         st.write("Top_P: 温度と同様に、これはランダム性を制御しますが、別の方法を使用します。Top_P を下げると、より可能性が高い回答に絞り込まれます。Top_P を上げると、確率が高い回答と低い回答の両方から選択されるようになります。【推奨値:0.50】")
         top_p = st.slider("", 0.0, 1.0, 0.5, 0.01)
+
+    # （準備中）ユーザーアンケート
+    #st.sidebar.markdown("""
+    #[お問い合わせ](https://docs.google.com/forms/d/e/1FAIpQLScHlR9LYv3fmFuhHP0uqwX3SOLJYvELtfz-a0G_VAh5JJPnrw/viewform)
+    #""")
+
+    # バージョン情報表示
+    st.sidebar.write("v1.1.0")
+
+    # （準備中）バージョン情報表示（リリースノートへのハイパーリンク）
+    #st.sidebar.markdown("""
+    #[v1.1.0](https://app.luminpdf.com/viewer/64eec06f00de38210728ab26)
+    #""")
 
     # 機能に応じたUIの表示
     if selected_option == "選択してください":
@@ -118,17 +134,11 @@ if st.session_state["authenticated"]:
         # Create a placeholder for the user's input
         user_input = st.text_area("自由に質問を入力してください。", value=st.session_state.get("user_input_Q&A", ""))
 
-        # トークン数をカウント
-        token_count = len(user_input.split())
+        # トークン数を計算
+        tokens = count_tokens(user_input)-2
 
         # トークン数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力された単語数（英字のみの場合はこちらを確認。上限の目安：2,000）: {token_count}</span>', unsafe_allow_html=True)
-
-        # 文字数をカウント
-        char_count = len(user_input)
-
-        # 文字数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力された文字数（日本語のみ、英字・日本語混在の場合はこちらを確認。上限の目安：2,000）: {char_count}</span>', unsafe_allow_html=True)
+        st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -156,18 +166,11 @@ if st.session_state["authenticated"]:
         # 追加：補足情報の入力フィールド
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
-        # トークン数をカウント
-        token_count = len(user_input.split()) + len(additional_info.split())
+        # トークン数を計算
+        tokens = count_tokens(user_input) + count_tokens(additional_info)-4
 
         # トークン数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力された単語数（英字のみの場合はこちらを確認。上限の目安：2,000）: {token_count}</span>', unsafe_allow_html=True)
-
-        # 文字数をカウント
-        char_count = len(user_input) + len(additional_info)
-
-        # 文字数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力された文字数（日本語のみ、英字・日本語混在の場合はこちらを確認。上限の目安：2,000）: {char_count}</span>', unsafe_allow_html=True)
-
+        st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -276,17 +279,11 @@ if st.session_state["authenticated"]:
         # 追加：補足情報の入力フィールド
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
-        # トークン数をカウント
-        token_count = len(user_input.split()) + len(additional_info.split())
+        # トークン数を計算
+        tokens = count_tokens(user_input) + count_tokens(additional_info)-4
 
         # トークン数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力された単語数（英字のみの場合はこちらを確認。上限の目安：2,000）: {token_count}</span>', unsafe_allow_html=True)
-
-        # 文字数をカウント
-        char_count = len(user_input) + len(additional_info)
-
-        # 文字数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力された文字数（日本語のみ、英字・日本語混在の場合はこちらを確認。上限の目安：2,000）: {char_count}</span>', unsafe_allow_html=True)
+        st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -341,17 +338,11 @@ if st.session_state["authenticated"]:
         # 追加：補足情報の入力フィールド
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
-        # トークン数をカウント
-        token_count = len(user_input.split()) + len(additional_info.split())
+        # トークン数を計算
+        tokens = count_tokens(user_input) + count_tokens(additional_info)-4
 
         # トークン数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力された単語数（英字のみの場合はこちらを確認。上限の目安：2,000）: {token_count}</span>', unsafe_allow_html=True)
-
-        # 文字数をカウント
-        char_count = len(user_input) + len(additional_info)
-
-        # 文字数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力された文字数（日本語のみ、英字・日本語混在の場合はこちらを確認。上限の目安：2,000）: {char_count}</span>', unsafe_allow_html=True)
+        st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -361,7 +352,7 @@ if st.session_state["authenticated"]:
                     "あなたの役割は、情報分析のために作成された過去の複雑なExcel関数を分析し、わかりやすく説明することです。\n"
                     "これから入力するExcel関数に対して、下記の操作1を行い、出力してください。\n"
                     "操作1:[\n"
-                    "複雑なネスト構造になっているExcel関数を改行し、わかりやすく表示してください。\n"
+                    "複雑なネスト構造になっているExcel関数を改行し、かつインデント表示をすることで、わかりやすく表示してください。インデントは見やすくなるよう全角\n"
                     "]\n"
                     "操作2:[\n"
                     "操作1を行った後にこのExcel関数がどのような処理を行おうとしているものか解説し、よりシンプルで分かりやすい関数に書き換えが可能であれば、その提案をしてください。]\n"
@@ -398,17 +389,11 @@ if st.session_state["authenticated"]:
         # 追加：補足情報の入力フィールド
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
-        # トークン数をカウント
-        token_count = len(user_input.split()) + len(additional_info.split())
+        # トークン数を計算
+        tokens = count_tokens(user_input) + count_tokens(additional_info)-4
 
         # トークン数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力された単語数（英字のみの場合はこちらを確認。上限の目安：2,000）: {token_count}</span>', unsafe_allow_html=True)
-
-        # 文字数をカウント
-        char_count = len(user_input) + len(additional_info)
-
-        # 文字数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力された文字数（日本語のみ、英字・日本語混在の場合はこちらを確認。上限の目安：2,000）: {char_count}</span>', unsafe_allow_html=True)
+        st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -455,17 +440,11 @@ if st.session_state["authenticated"]:
         # 追加：補足情報の入力フィールド
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
-        # トークン数をカウント
-        token_count = len(user_input.split()) + len(additional_info.split())
+        # トークン数を計算
+        tokens = count_tokens(user_input) + count_tokens(additional_info)-4
 
         # トークン数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力された単語数（英字のみの場合はこちらを確認。上限の目安：2,000）: {token_count}</span>', unsafe_allow_html=True)
-
-        # 文字数をカウント
-        char_count = len(user_input) + len(additional_info)
-
-        # 文字数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力された文字数（日本語のみ、英字・日本語混在の場合はこちらを確認。上限の目安：2,000）: {char_count}</span>', unsafe_allow_html=True)
+        st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
