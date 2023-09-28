@@ -2,6 +2,13 @@
 import streamlit as st
 import openai
 import uuid
+from PIL import Image
+import numpy as np
+import pdfplumber
+import pandas as pd
+#from docx import Document
+#結果をWord形式で出力したいが、docxのインポートがうまくいかずエラーになるため、保留。
+
 
 # サービス名を表示する
 st.sidebar.title("AI Assistant")
@@ -108,22 +115,36 @@ if st.session_state["authenticated"]:
         st.write("Top_P: 温度と同様に、これはランダム性を制御しますが、別の方法を使用します。Top_P を下げると、より可能性が高い回答に絞り込まれます。Top_P を上げると、確率が高い回答と低い回答の両方から選択されるようになります。【推奨値:0.50】")
         top_p = st.slider("", 0.0, 1.0, 0.5, 0.01)
 
-    # （準備中）ユーザーアンケート
+    # 累積トークン数リセットボタンの設置
+    if st.sidebar.button("トークン数リセット"):
+        st.session_state["messages"] = [
+            {"role": "system", "content": "You are the best AI assistant in the world."}
+        ]
+
+    # 「お問い合わせ」ハイパーリンクの設置
+    def create_mailto_link():
+        to_address = "kazuki.takahashi@front-ia.com,katakahashi@pictet.com"
+        cc_address = "hiroyuki.tsuchida@front-ia.com"
+        subject = "AI Assistant"
+        return f"mailto:{to_address}?subject={subject}&cc={cc_address}"
+
+    mailto_link = create_mailto_link()
+    st.sidebar.markdown(f'<a href="{mailto_link}" target="_blank">お問い合わせ</a>', unsafe_allow_html=True)
+
+    # (準備中)ユーザーアンケート
     #st.sidebar.markdown("""
-    #[お問い合わせ](https://docs.google.com/forms/d/e/1FAIpQLScHlR9LYv3fmFuhHP0uqwX3SOLJYvELtfz-a0G_VAh5JJPnrw/viewform)
+    #[お問い合わせ](https://ai-assistant-inquiries-8sft4gmafubshjqsrzx6m2.streamlit.app/)
     #""")
 
-    # バージョン情報表示
-    st.sidebar.write("v1.1.0")
-
-    # （準備中）バージョン情報表示（リリースノートへのハイパーリンク）
-    #st.sidebar.markdown("""
-    #[v1.1.0](https://app.luminpdf.com/viewer/64eec06f00de38210728ab26)
-    #""")
+    # バージョン情報表示（リリースノートへのハイパーリンク）
+    st.sidebar.markdown("""
+    [v1.2.0](https://ai-assistant-releasenote-mfjkhzwcdpy9p33km6tffg.streamlit.app/)
+    """)
 
     # 機能に応じたUIの表示
     if selected_option == "選択してください":
         pass  # 何も表示しない
+
     elif selected_option == "Q&A":
         # Build the user interface
         st.title("Q&A")
@@ -131,14 +152,42 @@ if st.session_state["authenticated"]:
         # 留意点の表示
         st.markdown('<span style="color:red">***個人情報や機密情報は入力しないでください**</span>', unsafe_allow_html=True)
 
-        # Create a placeholder for the user's input
-        user_input = st.text_area("自由に質問を入力してください。", value=st.session_state.get("user_input_Q&A", ""))
+        # ユーザー入力を初期化
+        user_input = ""
+        uploaded_file = ""
 
-        # トークン数を計算
-        tokens = count_tokens(user_input)-2
+        # ラジオボタンで直接入力とファイルアップロードを選択
+        choice = st.radio("入力方法を選択してください", ["直接入力", "ファイルをアップロード"])
+
+        # 直接入力が選択された場合
+        if choice == "直接入力":
+            user_input = st.text_area("自由に質問を入力してください。", value=st.session_state.get("user_input_Q&A", ""), height=500)
+            st.session_state["user_input_Q&A"] = user_input
+
+        # ファイルアップロードが選択された場合
+        elif choice == "ファイルをアップロード":
+            uploaded_file = st.file_uploader("ファイルをアップロード", type='pdf')
+
+            def extract_text_from_pdf(feed):
+                extracted_text = ""
+                with pdfplumber.open(feed) as pdf:
+                    for page in pdf.pages:
+                        extracted_text += page.extract_text()
+                return extracted_text
+
+            if uploaded_file is not None:
+                extracted_text = extract_text_from_pdf(uploaded_file)
+                user_input = st.text_area("PDFから抽出したテキスト:", value=extracted_text, height=500)
+                st.session_state["user_input_Q&A"] = user_input
+
+        # ユーザー入力の確認
+        if 'user_input' in locals() and user_input:
+            tokens = count_tokens(user_input) - 1
 
         # トークン数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+            st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+        else:
+            tokens = 0
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -160,26 +209,62 @@ if st.session_state["authenticated"]:
         # 留意点の表示
         st.markdown('<span style="color:red">***個人情報や機密情報は入力しないでください**</span>', unsafe_allow_html=True)
 
-        # 右側の入力フォーム
-        user_input = st.text_area("翻訳したい文章を入力し、実行ボタンを押してください。", height=200, key="user_input_translation")
+        # ユーザー入力を初期化
+        user_input = ""
+        uploaded_file = ""
+
+        # ラジオボタンで直接入力とファイルアップロードを選択
+        choice = st.radio("入力方法を選択してください", ["直接入力", "ファイルをアップロード"])
+
+        # 直接入力が選択された場合
+        if choice == "直接入力":
+            # session_stateの更新
+            if "user_input_translation" in st.session_state:
+                default_value = st.session_state["user_input_translation"]
+            else:
+                default_value = ""
+            # ウィジェット生成
+            user_input = st.text_area("翻訳したい文章を入力してください。", value=default_value, height=500, key="user_input_translation")
+
+        # ファイルアップロードが選択された場合
+        elif choice == "ファイルをアップロード":
+            uploaded_file = st.file_uploader("ファイルをアップロード", type='pdf')
+
+            def extract_text_from_pdf(feed):
+                extracted_text = ""
+                with pdfplumber.open(feed) as pdf:
+                    for page in pdf.pages:
+                        extracted_text += page.extract_text()
+                return extracted_text
+
+            if uploaded_file is not None:
+                extracted_text = extract_text_from_pdf(uploaded_file)
+                # session_stateの更新
+                st.session_state["user_input_translation"] = extracted_text
+                # ウィジェット生成
+                user_input = st.text_area("PDFから抽出したテキスト:", value=extracted_text, key="user_input_translation", height=500)
+
 
         # 追加：補足情報の入力フィールド
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
-        # トークン数を計算
-        tokens = count_tokens(user_input) + count_tokens(additional_info)-4
+        # ユーザー入力の確認
+        if 'user_input' in locals() and user_input:
+            tokens = count_tokens(user_input) - 2
 
         # トークン数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+            st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+        else:
+            tokens = 0
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
 
         initial_prompt = (
                     "あなたは優秀な翻訳家です。あなたの役割は、英文を日本語に翻訳し、日本語のウェブサイト上で日本人の投資家向けに翻訳された間違いのない情報を提供することです。\n"
-                    "可能な限り原文に忠実に、漏れや間違いなく、自然な日本語に翻訳してください。\n"
-                    "＃指示\n"
-                    f"{user_input}を翻訳してください。\n"
+                    "以下の指示1から指示4に従って作業を行ってください。出力は下記の「形式」に従いmarkdown形式とし、「#指示」の文言は出力しないでください。\n"
+                    "＃指示1\n"
+                    f"{user_input}を、下記の「注意してほしい点」を参照しながら、可能な限り原文に忠実に、漏れや間違いなく、自然な日本語に翻訳し、【翻訳結果】として出力してください\n"
                     f"＃補足情報: {additional_info}"
                     "＃注意してほしい点：所有格を無理に全部訳さない\n"
                     "＃例①\n"
@@ -249,6 +334,33 @@ if st.session_state["authenticated"]:
                     "【英文】The application shall be submitted to the president for review. \n"
                     "【悪い日本語訳の例】申込書は確認のために社長に提出されなければならない。\n"
                     "【良い日本語訳の例】申込書を提出し社長の確認を受けなければならない。\n"
+                    "###\n"
+                    "＃指示2\n"    
+                    "#指示1で翻訳により作成された文章を、半分の分量になるよう要約し、【要約】として出力してください。"           
+                    "###\n"
+                    "＃指示3\n"    
+                    "#指示1で翻訳により作成された文章中、固有名詞にあたるものを下記の例に従ってリスト化し、【固有名詞】として出力してください。"
+                    "#例\n"
+                    "・固有名詞１（○段落○行目）\n"
+                    "＃指示4\n"    
+                    "#指示1で翻訳により作成された文章中、数値にあたるものを下記の例に従ってリスト化し、数値の説明とともに【数値とその説明】として出力してください。"
+                    "#例\n"
+                    "・○○％（○段落○行目）：○○の割合\n"
+                    "###"
+                    "#形式\n"
+                    "【翻訳】\n"
+                    "○○○\n"
+                    "---\n"
+                    "【要約】\n"
+                    "○○○\n"
+                    "---\n"
+                    "【固有名詞】\n"
+                    "○○○\n"
+                    "---\n"
+                    "【数値とその説明】\n"
+                    "○○○\n"
+                    "---\n"
+                    "###"
         )
 
         if st.button("実行", key="send_button_translation"):
@@ -273,17 +385,52 @@ if st.session_state["authenticated"]:
         # 留意点の表示
         st.markdown('<span style="color:red">***個人情報や機密情報は入力しないでください**</span>', unsafe_allow_html=True)
 
-        # 右側の入力フォーム
-        user_input = st.text_area("校閲/校正したい文章を入力し、実行ボタンを押してください。", height=200, key="user_input_proof")
+        # ユーザー入力を初期化
+        user_input = ""
+        uploaded_file = ""
+
+        # ラジオボタンで直接入力とファイルアップロードを選択
+        choice = st.radio("入力方法を選択してください", ["直接入力", "ファイルをアップロード"])
+
+        # 直接入力が選択された場合
+        if choice == "直接入力":
+            # session_stateの更新
+            if "user_input_proof" in st.session_state:
+                default_value = st.session_state["user_input_proof"]
+            else:
+                default_value = ""
+            # ウィジェット生成
+            user_input = st.text_area("校閲/校正したい文章を入力してください。", value=default_value, height=500, key="user_input_proof")
+
+        # ファイルアップロードが選択された場合
+        elif choice == "ファイルをアップロード":
+            uploaded_file = st.file_uploader("ファイルをアップロード", type='pdf')
+
+            def extract_text_from_pdf(feed):
+                extracted_text = ""
+                with pdfplumber.open(feed) as pdf:
+                    for page in pdf.pages:
+                        extracted_text += page.extract_text()
+                return extracted_text
+
+            if uploaded_file is not None:
+                extracted_text = extract_text_from_pdf(uploaded_file)
+                # session_stateの更新
+                st.session_state["user_input_proof"] = extracted_text
+                # ウィジェット生成
+                user_input = st.text_area("PDFから抽出したテキスト:", value=extracted_text, key="user_input_proof", height=500)
 
         # 追加：補足情報の入力フィールド
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
-        # トークン数を計算
-        tokens = count_tokens(user_input) + count_tokens(additional_info)-4
+        # ユーザー入力の確認
+        if 'user_input' in locals() and user_input:
+            tokens = count_tokens(user_input) - 2
 
         # トークン数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+            st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+        else:
+            tokens = 0
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -332,17 +479,51 @@ if st.session_state["authenticated"]:
         # 留意点の表示
         st.markdown('<span style="color:red">***個人情報や機密情報は入力しないでください**</span>', unsafe_allow_html=True)
 
-        # 右側の入力フォーム
-        user_input = st.text_area("解析したいExcelの式を入力し、実行ボタンを押してください。", height=200, key="user_input_excel")
+        # ユーザー入力を初期化
+        user_input = ""
+        uploaded_file = ""
+
+        # ラジオボタンで直接入力とファイルアップロードを選択
+        choice = st.radio("入力方法を選択してください", ["直接入力", "ファイルをアップロード"])
+
+        # 直接入力が選択された場合
+        if choice == "直接入力":
+            # session_stateの更新
+            if "user_input_formula" in st.session_state:
+                default_value = st.session_state["user_input_formula"]
+            else:
+                default_value = ""
+            # ウィジェット生成
+            user_input = st.text_area("解析したいExcelの式を入力してください。", value=default_value, height=500, key="user_input_formula")
+
+        # ファイルアップロードが選択された場合
+        elif choice == "ファイルをアップロード":
+            uploaded_file = st.file_uploader("ファイルをアップロード", type='csv')
+
+            def extract_data_from_csv(feed):
+                # CSVをpandas DataFrameとして読み込む
+                df = pd.read_csv(feed, encoding='ISO-8859-1')
+                # DataFrameを文字列として返す（あるいは、必要なデータを抽出・変換する）
+                return df.to_string()
+
+            if uploaded_file is not None:
+                extracted_data = extract_data_from_csv(uploaded_file)
+                # session_stateの更新
+                st.session_state["user_input_formula"] = extracted_data
+                # ウィジェット生成
+                user_input = st.text_area("CSVから抽出したデータ:", value=extracted_data, key="user_input_formula", height=500)
 
         # 追加：補足情報の入力フィールド
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
-        # トークン数を計算
-        tokens = count_tokens(user_input) + count_tokens(additional_info)-4
+        # ユーザー入力の確認
+        if 'user_input' in locals() and user_input:
+            tokens = count_tokens(user_input) - 2
 
         # トークン数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+            st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+        else:
+            tokens = 0
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -383,17 +564,51 @@ if st.session_state["authenticated"]:
         # 留意点の表示
         st.markdown('<span style="color:red">***個人情報や機密情報は入力しないでください**</span>', unsafe_allow_html=True)
 
-        # 右側の入力フォーム
-        user_input = st.text_area("解析したいVBAのコードを入力し、実行ボタンを押してください。", height=200, key="user_input_vba")
+        # ユーザー入力を初期化
+        user_input = ""
+        uploaded_file = ""
+
+        # ラジオボタンで直接入力とファイルアップロードを選択
+        choice = st.radio("入力方法を選択してください", ["直接入力", "ファイルをアップロード"])
+
+        # 直接入力が選択された場合
+        if choice == "直接入力":
+            # session_stateの更新
+            if "user_input_vba" in st.session_state:
+                default_value = st.session_state["user_input_vba"]
+            else:
+                default_value = ""
+            # ウィジェット生成
+            user_input = st.text_area("解析したいVBAのコードを入力してください。", value=default_value, height=500, key="user_input_vba")
+
+        # ファイルアップロードが選択された場合
+        elif choice == "ファイルをアップロード":
+            uploaded_file = st.file_uploader("ファイルをアップロード", type='csv')
+
+            def extract_data_from_csv(feed):
+                # CSVをpandas DataFrameとして読み込む
+                df = pd.read_csv(feed, encoding='ISO-8859-1')
+                # DataFrameを文字列として返す（あるいは、必要なデータを抽出・変換する）
+                return df.to_string()
+
+            if uploaded_file is not None:
+                extracted_data = extract_data_from_csv(uploaded_file)
+                # session_stateの更新
+                st.session_state["user_input_vba"] = extracted_data
+                # ウィジェット生成
+                user_input = st.text_area("CSVから抽出したデータ:", value=extracted_data, key="user_input_vba", height=500)
 
         # 追加：補足情報の入力フィールド
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
-        # トークン数を計算
-        tokens = count_tokens(user_input) + count_tokens(additional_info)-4
+        # ユーザー入力の確認
+        if 'user_input' in locals() and user_input:
+            tokens = count_tokens(user_input) - 2
 
         # トークン数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+            st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+        else:
+            tokens = 0
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -428,6 +643,8 @@ if st.session_state["authenticated"]:
         if st.button("システムプロンプトを表示"):
             st.write(initial_prompt)
 
+
+
     elif selected_option == "Data Analysis":
         st.title("Data Analysis")
 
@@ -435,7 +652,7 @@ if st.session_state["authenticated"]:
         st.markdown('<span style="color:red">***個人情報や機密情報は入力しないでください**</span>', unsafe_allow_html=True)
 
         # 右側の入力フォーム
-        user_input = st.text_area("解析したいログデータを入力し、実行ボタンを押してください。", height=200, key="user_input_data")
+        user_input = st.text_area("解析したいログデータを入力し、実行ボタンを押してください。", height=500, key="user_input_data")
 
         # 追加：補足情報の入力フィールド
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
@@ -471,6 +688,8 @@ if st.session_state["authenticated"]:
         # 「システムプロンプトを表示」ボタンの設置
         if st.button("システムプロンプトを表示"):
             st.write(initial_prompt)
+
+
 
 # DeepLのAPIキーを取得
 #DEEPL_API_KEY = st.secrets["DeepLAPI"]["deepl_api_key"]
