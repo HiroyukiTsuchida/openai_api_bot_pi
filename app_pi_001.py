@@ -1,6 +1,6 @@
 
 import streamlit as st
-import openai
+from openai import OpenAI
 import uuid
 from PIL import Image
 import numpy as np
@@ -8,6 +8,9 @@ import pdfplumber
 import pandas as pd
 from docx import Document
 import base64
+import re
+import os
+import difflib
 
 
 # サービス名を表示する
@@ -34,7 +37,8 @@ if st.session_state["authenticated"]:
     unique_key = str(uuid.uuid4())
 
     # Streamlit Community Cloudの「Secrets」からOpenAI API keyを取得
-    openai.api_key = st.secrets.OpenAIAPI.openai_api_key
+    #openai.api_key = st.secrets.OpenAIAPI.openai_api_key
+    api_key = st.secrets.OpenAIAPI.openai_api_key
 
     # st.session_stateを使いメッセージのやりとりを保存
     if "messages" not in st.session_state:
@@ -42,13 +46,64 @@ if st.session_state["authenticated"]:
             {"role": "system", "content": "You are the best AI assistant in the world."}
         ]
 
+    # ApiClientインスタンスを作成
+    client = OpenAI(api_key = api_key)
+
     if "user_input" not in st.session_state:
         st.session_state["user_input"] = ""
 
-    def count_tokens(text):
-        response = openai.Completion.create(model="text-davinci-002", prompt=text, max_tokens=1)
-        token_count = response['usage']['total_tokens']
-        return token_count
+#↓トークン数上限監視のためのコード
+    # トークン使用量を記録するセッションステートの初期化
+    #if 'token_usage' not in st.session_state:
+    #    st.session_state['token_usage'] = 0
+
+    # トークン使用量の上限
+    #TOKEN_LIMIT = 100000  # 例として100,000トークンを上限とします
+
+    # トークン使用量を更新する関数
+    #def update_token_usage(new_tokens):
+    #    st.session_state['token_usage'] += new_tokens
+    #    # 上限に達した場合の警告表示
+    #    if st.session_state['token_usage'] >= TOKEN_LIMIT:
+    #        st.warning('トークン使用量の上限に達しました。')
+
+    # APIリクエストを行う関数（仮）
+    #def make_api_request():
+    #    # ここでAPIリクエストを行い、レスポンスを取得します
+    #    # 仮にトークン数を50とします
+    #    used_tokens = 50
+    #    return used_tokens
+
+    # ボタンでAPIリクエストをトリガーする
+    #if st.button('APIリクエスト実行'):
+    #    tokens = make_api_request()
+    #    update_token_usage(tokens)
+
+    # 現在のトークン使用量を表示
+    #st.write(f'現在のトークン使用量: {st.session_state["token_usage"]}')
+#↑トークン数上限監視のためのコード
+
+
+    #トークン数カウント（修正前）
+    #def count_tokens(text):
+    #    response = client.completions.create(model="text-davinci-002", messages=[{"role": "system", "content": text}])
+    #    token_count = response['usage']['total_tokens']
+    #    return token_count
+
+
+    #トークン数カウント（修正中）
+    #def count_tokens(text):
+    #    response = client.completions.create({
+    #        "model": "text-davinci-002",  # or your preferred model
+    #        "prompt": user_input,        # the text you want to process
+    #        "max_tokens": 1              # maximum number of tokens to generate
+    #    })
+    #    #レスポンスの内容を表示
+    #    st.write(response)
+
+        # 'Completion' オブジェクトから必要な情報を取得
+        #token_count = response.choices[0].usage.total_tokens
+        #return token_count
 
     def get_binary_file_downloader_html(bin_file, file_label="File"):
         with open(bin_file, "rb") as f:
@@ -57,30 +112,104 @@ if st.session_state["authenticated"]:
         href = f'<a href="data:application/octet-stream;base64,{bin_str}" download="{file_label}.docx">Download {file_label}</a>'
         return href
 
+    # （アップデート前のコード）チャットボットとやりとりする関数
+    #def communicate(user_input, bot_response_placeholder, model, temperature, top_p):
+    #    messages = st.session_state["messages"]
+    #    user_message = {"role": "user", "content": user_input}
+    #    messages.append(user_message)
+
+    #    # Temporary variable to store chunks
+    #    complete_response = ""
+
+    #    # Get the response from ChatCompletion in streaming mode
+    #    for chunk in client.completions.create(
+    #        model=model,
+    #        messages=messages,
+    #        temperature=temperature,
+    #        top_p=top_p,
+    #        stream=True
+    #    ):
+    #        content = chunk["choices"][0].get("delta", {}).get("content")
+    #        if content is not None:
+    #            # Accumulate content and update the bot's response in real time
+    #            complete_response += content
+    #            formatted_response = complete_response.replace("\n", "<br>")
+    #            indented_response = "".join([f"<div style='margin-left: 20px; white-space: pre-wrap;'>{line}</div>" for line in complete_response.split('\n')]) # インデントで回答
+    #            bot_response_placeholder.markdown(indented_response, unsafe_allow_html=True)
+
+    #    # After all chunks are received, add the complete response to the chat history
+    #    if complete_response:
+    #        bot_message = {"role": "assistant", "content": complete_response}
+    #        messages.append(bot_message)
+
+    #   # Reset the messages after the chat
+    #    messages = [{"role": "system", "content": "You are the best AI assistant in the world."}]
+
+    #    return complete_response
+
+
+# （作業中）チャットボットとやりとりする関数（ストリームモード）
+# def communicate(user_input, bot_response_placeholder, model, temperature, top_p):
+#     messages = st.session_state["messages"]
+#     user_message = {"role": "user", "content": user_input}
+#     messages.append(user_message)
+
+#     complete_response = ""
+
+#     # Get the response from ChatCompletion
+#     response = client.chat.completions.create(
+#         model=model,
+#         messages=messages,
+#         temperature=temperature,
+#         max_tokens=4000,
+#         top_p=top_p,
+#         stream=True
+#     )
+#     for chunk in response:
+#         # 'choices'属性からレスポンステキストを取得
+#         if chunk.choices:
+#             response_text = chunk.choices[0].text
+#             if response_text is not None:
+#                 # Accumulate content and update the bot's response in real time
+#                 complete_response += response_text
+#                 formatted_response = complete_response.replace("\n", "<br>")
+#                 indented_response = "".join([f"<div style='margin-left: 20px; white-space: pre-wrap;'>{line}</div>" for line in complete_response.split('\n')]) # インデントで回答
+#                 bot_response_placeholder.markdown(indented_response, unsafe_allow_html=True)
+
+#     # After all chunks are received, add the complete response to the chat history
+#     if complete_response:
+#         bot_message = {"role": "assistant", "content": complete_response}
+#         messages.append(bot_message)
+
+#     # Reset the messages after the chat
+#     messages = [{"role": "system", "content": "You are the best AI assistant in the world."}]
+
+#     return complete_response
+
+
     # チャットボットとやりとりする関数
     def communicate(user_input, bot_response_placeholder, model, temperature, top_p):
         messages = st.session_state["messages"]
         user_message = {"role": "user", "content": user_input}
         messages.append(user_message)
 
-        # Temporary variable to store chunks
         complete_response = ""
 
-        # Get the response from ChatCompletion in streaming mode
-        for chunk in openai.ChatCompletion.create(
+        # Get the response from ChatCompletion
+        response = client.chat.completions.create(
             model=model,
             messages=messages,
             temperature=temperature,
+            max_tokens=2000,
             top_p=top_p,
-            stream=True
-        ):
-            content = chunk["choices"][0].get("delta", {}).get("content")
-            if content is not None:
-                # Accumulate content and update the bot's response in real time
-                complete_response += content
-                formatted_response = complete_response.replace("\n", "<br>")
-                indented_response = "".join([f"<div style='margin-left: 20px; white-space: pre-wrap;'>{line}</div>" for line in complete_response.split('\n')]) # インデントで回答
-                bot_response_placeholder.markdown(indented_response, unsafe_allow_html=True)
+        )
+        response_message = response.choices[0].message.content
+        if response_message is not None:
+            # Accumulate content and update the bot's response in real time
+            complete_response += response_message
+            formatted_response = complete_response.replace("\n", "<br>")
+            indented_response = "".join([f"<div style='margin-left: 20px; white-space: pre-wrap;'>{line}</div>" for line in complete_response.split('\n')]) # インデントで回答
+            bot_response_placeholder.markdown(indented_response, unsafe_allow_html=True)
 
         # After all chunks are received, add the complete response to the chat history
         if complete_response:
@@ -91,6 +220,28 @@ if st.session_state["authenticated"]:
         messages = [{"role": "system", "content": "You are the best AI assistant in the world."}]
 
         return complete_response
+
+#    def process_response(generated_text, user_input):
+#        # 分割して、修正後の全文と修正箇所リストを抽出
+#        response_lines = generated_text.split("\n")
+#        corrected_full_text = response_lines[0]  # 最初の行を「修正後全文」と仮定
+#        correction_list = response_lines[1:]  # 残りの行を「修正箇所リスト」と仮定
+
+#        # 元のテキストと修正後のテキストの比較
+#        corrected_full_text_words = corrected_full_text.split()
+#        user_input_words = user_input.split()
+#        bolded_text = ""
+
+        # 各単語を比較して、変更された部分を強調
+#        for word in corrected_full_text_words:
+#            if word in user_input_words:
+#                bolded_text += word + " "
+#            else:
+#                bolded_text += "**" + word + "** "
+#
+#        return bolded_text, correction_list
+
+
 
     # サイドバーで機能を選択
     selected_option = st.sidebar.selectbox(
@@ -104,7 +255,7 @@ if st.session_state["authenticated"]:
     st.sidebar.header("オプション")
 
     # モデルの選択とその補足情報
-    with st.sidebar.beta_expander("モデル  🛈"):
+    with st.sidebar.expander("モデル  🛈"):
         st.write(
         """gpt-4（推奨）は、高品質な回答を出力します。入力・出力の合計で約8,000トークンまで処理可能です。gpt-3.5-turbo-16kは、gpt-4と比較すると回答の質は下がりますが、入力・出力の合計で約16,000トークンまで処理でき、gpt-4に比べ高速で回答の出力が可能です。
         """)
@@ -115,20 +266,20 @@ if st.session_state["authenticated"]:
     )
 
     # Temperatureスライダーとその補足情報
-    with st.sidebar.beta_expander("Temperature  🛈"):
+    with st.sidebar.expander("Temperature  🛈"):
         st.write("Temperature（温度）:モデルの出力の「確信度」または「多様性」を制御します。値が高いとモデルの出力は多様性が増し、予測はよりランダムになります。逆に、値が低いとモデルの出力はより確信度が高くなり、最も確率的に高い結果を選びやすくなります。【推奨値:0.10】")
         temperature = st.slider("", 0.0, 2.0, 0.1, 0.01)
 
     # Top_Pスライダーとその補足情報
-    with st.sidebar.beta_expander("Top_P  🛈"):
+    with st.sidebar.expander("Top_P  🛈"):
         st.write("Top_P: 温度と同様に、これはランダム性を制御しますが、別の方法を使用します。Top_P を下げると、より可能性が高い回答に絞り込まれます。Top_P を上げると、確率が高い回答と低い回答の両方から選択されるようになります。【推奨値:0.50】")
         top_p = st.slider("", 0.0, 1.0, 0.5, 0.01)
 
     # 累積トークン数リセットボタンの設置
-    if st.sidebar.button("トークン数リセット"):
-        st.session_state["messages"] = [
-            {"role": "system", "content": "You are the best AI assistant in the world."}
-        ]
+    #if st.sidebar.button("トークン数リセット"):
+    #    st.session_state["messages"] = [
+    #        {"role": "system", "content": "You are the best AI assistant in the world."}
+    #    ]
 
     # 「お問い合わせ」ハイパーリンクの設置
     def create_mailto_link():
@@ -147,15 +298,47 @@ if st.session_state["authenticated"]:
 
     # バージョン情報表示（リリースノートへのハイパーリンク）
     st.sidebar.markdown("""
-    [v1.3.0](https://ai-assistant-releasenote-mfjkhzwcdpy9p33km6tffg.streamlit.app/)
+    [v2.0.0](https://ai-assistant-releasenote-mfjkhzwcdpy9p33km6tffg.streamlit.app/)
     """)
 
+   #Wordファイル形式での出力を定義
     def create_word_doc(text):
         doc = Document()
         doc.add_paragraph(text)
         output_path = "/tmp/translated_text.docx"
         doc.save(output_path)
         return output_path
+
+    #Wordファイル形式での出力を定義（ファイルタイトルを原文タイトルから取得するよう修正中）
+    #def create_word_doc(text):
+        # 最初の行を取得
+#        first_line = text.split("\n")[0].strip()
+#        print(f"Debug: First Line = {first_line}")
+
+        # 正規表現を使用してタイトル部分を取得
+#        match = re.search(r'\d{2}:\d{2} (.+)', first_line)
+#        if match:
+#            title = match.group(1)
+#        else:
+#            title = first_line
+
+#        print(f"Debug: Title = {title}")
+
+
+        # ファイル名として使用できない文字を取り除く
+#        valid_filename = re.sub(r"[^a-zA-Z0-9]", "_", title)
+#        valid_filename = re.sub(r"_+", "_", valid_filename)
+
+        # 一定の長さに制限する (例: 20文字)
+#        valid_filename = valid_filename[:20] + ".docx"
+
+#        print(f"Debug: Valid Filename = {valid_filename}")
+
+#        doc = Document()
+#        doc.add_paragraph(text)
+#        output_path = f"/tmp/{valid_filename}"
+#        doc.save(output_path)
+#        return output_path
 
 
     # 機能に応じたUIの表示
@@ -175,6 +358,7 @@ if st.session_state["authenticated"]:
 
         # ラジオボタンで直接入力とファイルアップロードを選択
         choice = st.radio("入力方法を選択してください", ["直接入力", "ファイルをアップロード"])
+        st.markdown('<span style="color:red">***「ファイルをアップロード」は社内環境からは実行しないでください**</span>', unsafe_allow_html=True)
 
         # 直接入力が選択された場合
         if choice == "直接入力":
@@ -198,13 +382,13 @@ if st.session_state["authenticated"]:
                 st.session_state["user_input_Q&A"] = user_input
 
         # ユーザー入力の確認
-        if 'user_input' in locals() and user_input:
-            tokens = count_tokens(user_input) - 1
+        #if 'user_input' in locals() and user_input:
+        #    tokens = count_tokens(user_input) - 1
 
         # トークン数を表示
-            st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
-        else:
-            tokens = 0
+        #    st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+        #else:
+        #    tokens = 0
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -216,6 +400,12 @@ if st.session_state["authenticated"]:
             else:
                 st.session_state["user_input_Q&A"] = user_input
                 communicate(st.session_state["user_input_Q&A"], bot_response_placeholder, model, temperature, top_p)
+
+    # 累積トークン数リセットボタンの設置
+    if st.sidebar.button("トークン数リセット"):
+        st.session_state["messages"] = [
+            {"role": "system", "content": "You are the best AI assistant in the world."}
+        ]
 
         # Clear the user input
         st.session_state["user_input_Q&A"] = ""
@@ -233,6 +423,7 @@ if st.session_state["authenticated"]:
 
         # ラジオボタンで直接入力とファイルアップロードを選択
         choice = st.radio("入力方法を選択してください", ["直接入力", "ファイルをアップロード"])
+        st.markdown('<span style="color:red">***「ファイルをアップロード」は社内環境からは実行しないでください**</span>', unsafe_allow_html=True)
 
         # 直接入力が選択された場合
         if choice == "直接入力":
@@ -267,20 +458,23 @@ if st.session_state["authenticated"]:
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
         # ユーザー入力の確認
-        if 'user_input' in locals() and user_input:
-            tokens = count_tokens(user_input) - 2
+        #if 'user_input' in locals() and user_input:
+        #    tokens = count_tokens(user_input) - 2
 
         # トークン数を表示
-            st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
-        else:
-            tokens = 0
+        #    st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+        #else:
+        #    tokens = 0
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
 
         initial_prompt = (
                     "あなたは優秀な翻訳家です。あなたの役割は、英文を日本語に翻訳し、日本語のウェブサイト上で日本人の投資家向けに翻訳された間違いのない情報を提供することです。\n"
-                    "以下の指示1及び指示2に従って作業を行ってください。出力は下記の「形式」に従いmarkdown形式とし、「#指示」の文言は出力しないでください。\n"
+                    "以下の指示1から指示3に従って作業を行ってください。\n"
+                    "出力は下記の「形式」に従いmarkdown形式とし、「#指示」の文言は出力しないでください。\n"
+                    "「Pictet」という単語は必ず「ピクテ」と翻訳してください。\n"
+                    "Word形式での出力については、各パラグラフや項目ごとに必ず２行以上の間隔を開けてください。\n"
                     "＃指示1\n"
                     f"{user_input}を、下記の「注意してほしい点」を参照しながら、可能な限り原文に忠実に、漏れや間違いなく、自然な日本語に翻訳し、【翻訳結果】として出力してください\n"
                     f"＃補足情報: {additional_info}"
@@ -356,17 +550,25 @@ if st.session_state["authenticated"]:
                     "＃指示2\n"
                     "#指示1で翻訳により作成された文章を、半分の分量になるよう要約し、【要約】として出力してください。\n"
                     "###\n"
+                    "＃指示3\n"
+                    "#指示1で翻訳により作成された文章から、固有名詞を抜き出してリスト化し、簡単な説明をつけて、【固有名詞とその説明】として出力してください。\n"
+                    "###\n"
         )
-
+        # 翻訳の実行コマンド
         if st.button("実行", key="send_button_translation"):
             if user_input.strip() == "":
                 st.warning("データを入力してください。")
             else:
+                # 新しいセッションごとにメッセージ履歴をリセット
+                st.session_state["messages"] = []
+                # イニシャルプロンプトの入力とチャットの生成
                 st.session_state["user_input"] = initial_prompt
                 generated_text = communicate(initial_prompt, bot_response_placeholder, model, temperature, top_p)
 
                 # 生成されたテキストをUIに表示します。
                 #bot_response_placeholder = st.write(generated_text)
+
+
 
                 # Word文書を生成
                 doc_path = create_word_doc(generated_text)
@@ -377,9 +579,25 @@ if st.session_state["authenticated"]:
                     bin_str = base64.b64encode(data).decode()
                     href = f'<a href="data:application/octet-stream;base64,{bin_str}" download="{bin_file}">{file_label}</a>'
                     return href
+                    # ファイル名を原文タイトルから取得するパターン（修正中）
+                    #href = f'<a href="data:application/octet-stream;base64,{bin_str}" download="{os.path.basename(bin_file)}">{file_label}</a>'
 
                 # Word文書をダウンロードリンクとして提供
                 st.markdown(get_binary_file_downloader_html(doc_path, "結果をWord形式でダウンロード"), unsafe_allow_html=True)
+                # ファイル名を原文タイトルから取得するパターン（修正中）
+                #st.markdown(get_binary_file_downloader_html(doc_path, os.path.basename(doc_path)), unsafe_allow_html=True)
+
+                # メッセージ履歴の初期化
+                if "messages" not in st.session_state:
+                    st.session_state["messages"] = []
+
+        # APIに送信するデータを表示する前に、`messages` 変数の状態を確認
+        #if "messages" in st.session_state:
+        #    messages = st.session_state["messages"]
+        #    st.write("送信するリクエスト:", {"model": model, "messages": messages, "temperature": temperature, "top_p": top_p})
+        #else:
+        #    st.write("メッセージが未定義です。")
+
 
         # 「システムプロンプトを表示」ボタンの説明
         st.markdown('<span style="color:grey; font-size:12px;">***下の「システムプロンプトを表示」ボタンを押すと、この機能にあらかじめ組み込まれているプロンプト（命令文）を表示できます。**</span>', unsafe_allow_html=True)
@@ -401,6 +619,7 @@ if st.session_state["authenticated"]:
 
         # ラジオボタンで直接入力とファイルアップロードを選択
         choice = st.radio("入力方法を選択してください", ["直接入力", "ファイルをアップロード"])
+        st.markdown('<span style="color:red">***「ファイルをアップロード」は社内環境からは実行しないでください**</span>', unsafe_allow_html=True)
 
         # 直接入力が選択された場合
         if choice == "直接入力":
@@ -433,14 +652,17 @@ if st.session_state["authenticated"]:
         # 追加：補足情報の入力フィールド
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
+        # ユーザーの入力を表示
+        #st.write("ユーザー入力:", user_input)
+
         # ユーザー入力の確認
-        if 'user_input' in locals() and user_input:
-            tokens = count_tokens(user_input) - 2
+        #if 'user_input' in locals() and user_input:
+        #    tokens = count_tokens(user_input) - 2
 
         # トークン数を表示
-            st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
-        else:
-            tokens = 0
+        #    st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+        #else:
+        #    tokens = 0
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -449,11 +671,12 @@ if st.session_state["authenticated"]:
             "## あなたは校閲・校正の優秀なスペシャリストです。  \n"
             "あなたの役割は、日本の投資家向けに公表される情報を校閲・校正し、間違いなく高品質な文章を作成することです。  \n"
             "これから入力する文章に対して、下記の処理と出力を記載された順番通り行ってください。  \n"
-            "なお、処理1と処理2については、後の出力1・2のための処理を行うのみとし、結果を文章として出力しないでください。  \n"
-            "出力は出力1「修正箇所リスト」の出力と出力2「修正後全文」においてのみ行ってください。  \n"
-            "また、該当するものがない項目についても、出力はしないでください \n"
+            "なお、処理1と処理2については、後の出力1・2のための処理を行うのみとし、結果を文章として表示しないでください。  \n"
+            "表示は出力1の「修正後全文」と出力2「修正箇所リスト」、及び出力3「表記揺れと考えられるもの」においてのみ行ってください。  \n"
+            "また、該当するものがない項目についても、表示はしないでください \n"
+            "入力された文章の文の途中に改行が入っていた場合は、適宜改行を削除して処理を行ってください。\n"
             "###  \n"
-            "処理1:誤りの検知（出力しない） \n"
+            "処理1:誤りの検知（表示しない） \n"
             "以下の基準に該当するものをすべて検知してください。 \n"
             "検知された個所は、どんなに大量になっても構いません。 \n"
             "正しいかどうかの判断が微妙な、微細な誤りと思われるものも含め、少しでも違和感があるものは、積極的にできるだけ多く検知し、一つの漏れもなく、すべてリスト化してください。 \n"
@@ -538,17 +761,21 @@ if st.session_state["authenticated"]:
             "・×「労働人口」→〇「労働力人口」 \n"
             "・×「日欧米」→〇「日米欧」 \n"
             "### \n"
-            "処理2:誤りの修正（出力しない） \n"
-            "操作1で検知したすべての誤りについて、下記の条件を遵守して修正を行ってください。 \n"
+            "処理2:誤りの修正（表示しない） \n"
+            "処理1で検知したすべての誤りについて、下記の条件を遵守して修正を行ってください。 \n"
             "条件: \n"
             "#1:文章の順番に変更を加えないこと。 \n"
             "#2:架空の表現や慣用句、ことわざを使用しないこと。 \n"
             "#3:文章を省略しないこと。 \n"
-            "出力1:修正箇所リスト \n"
-            "操作2で修正した指摘したすべての個所について、以下に示す箇条書きの形式で、一つずつ改行して出力してください。なお、該当がない項目については項目を含め出力しないでください。 \n"
+            "出力1:修正後全文 \n"
+            "修正を反映させた全文を出力してください。 \n"
+            "出力にあたっては、Markdown表示ができるようhtmhテキスト形式とし、処理2で修正した個所を赤字の太字で表示されるよう出力してください。 \n"
+            "出力2:修正箇所リスト \n"
+            "処理2で修正した指摘したすべての個所について、以下に示す箇条書きの形式で、一つずつ改行して出力してください。なお、該当がない項目については項目を含め出力しないでください。 \n"
             "形式: \n"
             "・「〇〇」→「〇〇」 \n"
-            "出力2:下記の例にあるような表記揺れ（同音・同義の語句について異なる文字表記が付されること）があるものは、該当する語句を全て、その下に示す形式で出力してください。その際、表記揺れと考えた理由は出力しないでください。 \n"
+            "出力3:表記揺れと考えられるもの \n"
+            "下記の例にあるような表記揺れ（同音・同義の語句について異なる文字表記が付されること）があるものは、該当する語句を全て、その下に示す形式で出力してください。その際、表記揺れと考えた理由は出力しないでください。 \n"
             "【例】 \n"
             "（1）送り仮名による表記ゆれ \n"
             "送り仮名の不統一（ばらつき・不揃い）により表記ゆれがある。 \n"
@@ -577,18 +804,63 @@ if st.session_state["authenticated"]:
             "表記揺れと考えられるもの \n"
             "・「〇〇」「〇〇」「〇〇」 \n"
             "・「△△」「△△」「△△」 \n"
-            "出力3:修正後全文 \n"
-            "修正を反映させた全文を出力してください。 \n"
             f"**{user_input}**を校閲・校正してください。  \n"
             f"＃補足情報: **{additional_info}**"
             )
 
+
+        # 校正の実行コマンド
         if st.button("実行", key="send_button_proofreading"):
             if user_input.strip() == "":
                 st.warning("データを入力してください。")
             else:
+                # 新しいセッションごとにメッセージ履歴をリセット
+                st.session_state["messages"] = []
+                # ユーザーの入力をメッセージ履歴に追加
+                #st.session_state["messages"].append({"role": "user", "content": user_input})
+
                 st.session_state["user_input"] = initial_prompt
-                communicate(initial_prompt, bot_response_placeholder, model, temperature, top_p)
+                generated_text = communicate(initial_prompt, bot_response_placeholder, model, temperature, top_p)
+
+                # 応答の処理
+                if generated_text is not None:
+                    # AIアシスタントの応答をメッセージ履歴に追加
+                    st.session_state["messages"].append({"role": "assistant", "content": generated_text})
+                    # 分割キーワードに基づいてテキストを分割
+                    # ここでのキーワードは応答の形式に基づいて選択する
+                    try:
+                        sections = generated_text.split("出力1:修正後全文\n\n")[1].split("出力2:修正箇所リスト\n\n")
+                        extracted_full_text = sections[0].split("\n\n出力3:")[0].strip()
+                        extracted_correction_list_str = sections[1].split("\n\n出力3:")[0].strip()
+
+                        extracted_correction_list = extracted_correction_list_str.split('\n')
+
+                        # Markdownの太字テキストを赤色で表示するためのHTMLに変換
+                        html_text = extracted_full_text.replace("**", "<span style='color: red; font-weight: bold;'>").replace("**", "</span>")
+                        bot_response_placeholder.markdown(html_text, unsafe_allow_html=True)
+
+                        for correction in extracted_correction_list:
+                            bot_response_placeholder.markdown(correction)
+                    except IndexError:
+                        bot_response_placeholder.write("・・・")
+
+                    # 応答テキストを確認
+                    st.markdown(generated_text)
+
+                else:
+                    st.write("応答テキストがありません。")
+
+                # メッセージ履歴の初期化
+                if "messages" not in st.session_state:
+                    st.session_state["messages"] = []
+
+        # APIに送信するデータを表示する前に、`messages` 変数の状態を確認
+        #if "messages" in st.session_state:
+        #    messages = st.session_state["messages"]
+        #    st.write("送信するリクエスト:", {"model": model, "messages": messages, "temperature": temperature, "top_p": top_p})
+        #else:
+        #    st.write("メッセージが未定義です。")
+
 
         # 「システムプロンプトを表示」ボタンの説明
         st.markdown('<span style="color:grey; font-size:12px;">***下の「システムプロンプトを表示」ボタンを押すと、この機能にあらかじめ組み込まれているプロンプト（命令文）を表示できます。**</span>', unsafe_allow_html=True)
@@ -596,6 +868,8 @@ if st.session_state["authenticated"]:
         # 「システムプロンプトを表示」ボタンの設置
         if st.button("システムプロンプトを表示"):
             st.write(initial_prompt)
+
+
 
     elif selected_option == "Excel Formula Analysis":
         st.title("Excel Formula Analysis")
@@ -609,6 +883,7 @@ if st.session_state["authenticated"]:
 
         # ラジオボタンで直接入力とファイルアップロードを選択
         choice = st.radio("入力方法を選択してください", ["直接入力", "ファイルをアップロード"])
+        st.markdown('<span style="color:red">***「ファイルをアップロード」は社内環境からは実行しないでください**</span>', unsafe_allow_html=True)
 
         # 直接入力が選択された場合
         if choice == "直接入力":
@@ -641,13 +916,13 @@ if st.session_state["authenticated"]:
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
         # ユーザー入力の確認
-        if 'user_input' in locals() and user_input:
-            tokens = count_tokens(user_input) - 2
+        #if 'user_input' in locals() and user_input:
+        #    tokens = count_tokens(user_input) - 2
 
         # トークン数を表示
-            st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
-        else:
-            tokens = 0
+        #    st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+        #else:
+        #    tokens = 0
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -660,7 +935,9 @@ if st.session_state["authenticated"]:
                     "複雑なネスト構造になっているExcel関数を改行し、かつインデント表示をすることで、わかりやすく表示してください。インデントは見やすくなるよう全角\n"
                     "]\n"
                     "操作2:[\n"
-                    "操作1を行った後にこのExcel関数がどのような処理を行おうとしているものか解説し、よりシンプルで分かりやすい関数に書き換えが可能であれば、その提案をしてください。]\n"
+                    "操作1を行った後にこのExcel関数がどのような処理を行おうとしているものか解説してください。]\n"
+                    "操作3:\n"
+                    "操作2を行った後に、入力されたExcel関数よりシンプルで分かりやすい関数を提案し、出力してください。\n"
                     "＃Excel関数:\n"
                     f"{user_input}\n"
                     "＃補足情報:\n"
@@ -671,6 +948,9 @@ if st.session_state["authenticated"]:
             if user_input.strip() == "":
                 st.warning("データを入力してください。")
             else:
+                # 新しいセッションごとにメッセージ履歴をリセット
+                st.session_state["messages"] = []
+                # イニシャルプロンプトの入力とチャットの生成
                 st.session_state["user_input"] = initial_prompt
                 communicate(initial_prompt, bot_response_placeholder, model, temperature, top_p)
 
@@ -694,6 +974,7 @@ if st.session_state["authenticated"]:
 
         # ラジオボタンで直接入力とファイルアップロードを選択
         choice = st.radio("入力方法を選択してください", ["直接入力", "ファイルをアップロード"])
+        st.markdown('<span style="color:red">***「ファイルをアップロード」は社内環境からは実行しないでください**</span>', unsafe_allow_html=True)
 
         # 直接入力が選択された場合
         if choice == "直接入力":
@@ -726,13 +1007,13 @@ if st.session_state["authenticated"]:
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
         # ユーザー入力の確認
-        if 'user_input' in locals() and user_input:
-            tokens = count_tokens(user_input) - 2
+        #if 'user_input' in locals() and user_input:
+        #    tokens = count_tokens(user_input) - 2
 
         # トークン数を表示
-            st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
-        else:
-            tokens = 0
+        #    st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+        #else:
+        #    tokens = 0
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -757,6 +1038,9 @@ if st.session_state["authenticated"]:
             if user_input.strip() == "":
                 st.warning("データを入力してください。")
             else:
+                # 新しいセッションごとにメッセージ履歴をリセット
+                st.session_state["messages"] = []
+                # イニシャルプロンプトの入力とチャットの生成
                 st.session_state["user_input"] = initial_prompt
                 communicate(initial_prompt, bot_response_placeholder, model, temperature, top_p)
 
@@ -782,10 +1066,10 @@ if st.session_state["authenticated"]:
         additional_info = st.text_area("補足情報を入力してください。", "", key="additional_info")
 
         # トークン数を計算
-        tokens = count_tokens(user_input) + count_tokens(additional_info)-4
+        #tokens = count_tokens(user_input) + count_tokens(additional_info)-4
 
         # トークン数を表示
-        st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
+        #st.markdown(f'<span style="color:grey; font-size:12px;">入力されたトークン数（上限の目安：2,000）: {tokens}</span>', unsafe_allow_html=True)
 
         # Create a placeholder for the bot's responses
         bot_response_placeholder = st.empty()
@@ -803,6 +1087,9 @@ if st.session_state["authenticated"]:
             if user_input.strip() == "":
                 st.warning("データを入力してください。")
             else:
+                # 新しいセッションごとにメッセージ履歴をリセット
+                st.session_state["messages"] = []
+                # イニシャルプロンプトの入力とチャットの生成
                 st.session_state["user_input"] = initial_prompt
                 communicate(initial_prompt, bot_response_placeholder, model, temperature, top_p)
 
